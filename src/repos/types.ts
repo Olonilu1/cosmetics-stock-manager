@@ -61,6 +61,8 @@ export interface DebtPayment {
 export interface ShopSettings {
   shopName: string;
   expiryAlertDays: number;
+  autoBackup: boolean;
+  lastBackupAt: string | null;
 }
 
 export interface StaffMember {
@@ -169,4 +171,18 @@ export interface StaffRepository {
   update(id: string, input: Partial<{ name: string; role: "Owner" | "Staff"; pin: string }>): Promise<void>;
   remove(id: string): Promise<void>;
   signIn(name: string, pin: string): Promise<StaffMember | null>;
+}
+
+export interface AuditEntry {
+  id: string;
+  at: string;
+  staffId: string | null;
+  staffName: string;
+  action: string;
+  details: string;
+}
+
+export interface AuditRepository {
+  log(action: string, details: string): Promise<void>;
+  list(limit?: number): Promise<AuditEntry[]>;
 }

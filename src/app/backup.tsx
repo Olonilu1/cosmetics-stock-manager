@@ -1,15 +1,28 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
+import { useFocusEffect } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import { useTheme } from "../hooks/useTheme";
 import { Button, Card, SectionTitle } from "../components/ui";
-import { purchaseRepo, saleRepo, stockLevels } from "../repos";
+import { purchaseRepo, saleRepo, settingsRepo, stockLevels } from "../repos";
 import { toCsvSales, toCsvStock, toCsvPurchases, backupJson, shareBackup, restoreJson } from "../lib/exporters";
+import { runAutoBackup } from "../lib/autobackup";
 
 export default function Backup() {
   const { colors } = useTheme();
   const [msg, setMsg] = useState<string | null>(null);
+  const [auto, setAuto] = useState(false);
+  const [lastAt, setLastAt] = useState<string | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      settingsRepo.get().then((s) => {
+        setAuto(s.autoBackup);
+        setLastAt(s.lastBackupAt);
+      });
+    }, []),
+  );
 
   const run = (fn: () => Promise<string>) => async () => {
     try { setMsg(await fn()); } catch (e) { setMsg(e instanceof Error ? e.message : String(e)); }
@@ -30,8 +43,36 @@ export default function Backup() {
 
       <SectionTitle>JSON backup</SectionTitle>
       <Card>
-        <Text style={{ color: colors.muted, fontSize: 13, marginBottom: 10 }}>A backup holds every product, purchase, sale, debt payment and supplier. Keep a copy before restoring.</Text>
+        <Text style={{ color: colors.muted, fontSize: 13, marginBottom: 10 }}>A backup holds every product, purchase, sale, debt payment, supplier and staff profile. Keep a copy before restoring.</Text>
         <Button label="Export backup" onPress={run(async () => { await shareBackup(await backupJson()); return "Backup ready to share."; })} />
+      </Card>
+
+      <SectionTitle>Automatic backup</SectionTitle>
+      <Card>
+        <Text style={{ color: colors.muted, fontSize: 13, marginBottom: 10 }}>
+          With this on, the app quietly saves a full copy on this phone at most once a week and keeps the newest four. Turning it on makes the first copy right away.
+        </Text>
+        <Button
+          label={auto ? "Automatic backup: ON. Tap to turn off" : "Automatic backup: OFF. Tap to turn on"}
+          kind="plain"
+          onPress={async () => {
+            const next = !auto;
+            await settingsRepo.update({ autoBackup: next });
+            setAuto(next);
+            if (next) {
+              await runAutoBackup();
+              const s = await settingsRepo.get();
+              setAuto(s.autoBackup);
+              setLastAt(s.lastBackupAt);
+              setMsg(s.lastBackupAt ? "First automatic copy saved on this phone." : null);
+            } else {
+              setMsg("Automatic backup turned off.");
+            }
+          }}
+        />
+        <Text style={{ color: colors.text, fontSize: 13, marginTop: 10 }}>
+          Last automatic copy: {lastAt ? new Date(lastAt).toLocaleString() : "never yet"}
+        </Text>
       </Card>
 
       <SectionTitle>Restore</SectionTitle>

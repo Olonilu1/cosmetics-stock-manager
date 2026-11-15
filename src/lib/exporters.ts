@@ -1,7 +1,7 @@
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import { getDb } from "../db/client";
-import { products, purchases, sales, debtPayments, suppliers, staff } from "../db/schema";
+import { products, purchases, sales, debtPayments, suppliers, staff, auditLog } from "../db/schema";
 
 function csv(rows: (string | number | null)[][]): string {
   return rows
@@ -44,15 +44,16 @@ export function shareCsv(name: string, content: string) {
 
 export async function backupJson(): Promise<string> {
   const db = getDb();
-  const [p, pu, s, d, su, st] = await Promise.all([
+  const [p, pu, s, d, su, st, au] = await Promise.all([
     db.select().from(products),
     db.select().from(purchases),
     db.select().from(sales),
     db.select().from(debtPayments),
     db.select().from(suppliers),
     db.select().from(staff),
+    db.select().from(auditLog),
   ]);
-  return JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), products: p, purchases: pu, sales: s, debtPayments: d, suppliers: su, staff: st }, null, 2);
+  return JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), products: p, purchases: pu, sales: s, debtPayments: d, suppliers: su, staff: st, auditLog: au }, null, 2);
 }
 
 export function shareBackup(json: string) {
@@ -67,6 +68,7 @@ export interface BackupData {
   debtPayments: unknown[];
   suppliers: unknown[];
   staff: unknown[];
+  auditLog?: unknown[];
 }
 
 export function isBackupData(v: unknown): v is BackupData {
@@ -85,10 +87,12 @@ export async function restoreJson(json: string): Promise<void> {
   await db.delete(products);
   await db.delete(suppliers);
   await db.delete(staff);
+  await db.delete(auditLog);
   if (data.products.length) await db.insert(products).values(data.products as (typeof products.$inferInsert)[]);
   if (data.suppliers.length) await db.insert(suppliers).values(data.suppliers as (typeof suppliers.$inferInsert)[]);
   if (data.purchases.length) await db.insert(purchases).values(data.purchases as (typeof purchases.$inferInsert)[]);
   if (data.sales.length) await db.insert(sales).values(data.sales as (typeof sales.$inferInsert)[]);
   if (data.debtPayments.length) await db.insert(debtPayments).values(data.debtPayments as (typeof debtPayments.$inferInsert)[]);
   if (data.staff.length) await db.insert(staff).values(data.staff as (typeof staff.$inferInsert)[]);
+  if (data.auditLog?.length) await db.insert(auditLog).values(data.auditLog as (typeof auditLog.$inferInsert)[]);
 }

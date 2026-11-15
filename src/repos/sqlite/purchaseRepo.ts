@@ -4,6 +4,8 @@ import { purchases, products, suppliers } from "../../db/schema";
 import type { Purchase, PurchaseInput, PurchaseRepository, PurchaseWithNames } from "../types";
 import { stockLevels, setCostFromPurchase } from "./productRepo";
 import { canDeletePurchase, stockOnHand } from "../../domain/calc";
+import { naira } from "../../lib/dates";
+import { auditRepo } from "./auditRepo";
 
 function toPurchase(row: typeof purchases.$inferSelect): Purchase {
   return {
@@ -53,6 +55,8 @@ export const purchaseRepo: PurchaseRepository = {
     };
     await getDb().insert(purchases).values(row);
     await setCostFromPurchase(input.productId, input.unitCost);
+    const prod = await getDb().select({ name: products.name }).from(products).where(eq(products.id, input.productId)).limit(1);
+    await auditRepo.log("purchase", `Bought ${input.qty} x ${prod[0]?.name ?? input.productId} at ${naira(input.unitCost)} (cost price updated)`);
     return toPurchase(row);
   },
   async update(id, input) {
@@ -77,5 +81,7 @@ export const purchaseRepo: PurchaseRepository = {
       throw new Error("Deleting this purchase would leave stock negative.");
     }
     await getDb().delete(purchases).where(eq(purchases.id, id));
+    const prod = await getDb().select({ name: products.name }).from(products).where(eq(products.id, p.productId)).limit(1);
+    await auditRepo.log("purchase-delete", `Deleted a purchase of ${p.qty} x ${prod[0]?.name ?? p.productId}`);
   },
 };

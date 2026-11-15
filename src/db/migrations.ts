@@ -80,6 +80,22 @@ CREATE TABLE IF NOT EXISTS staff (
 );
 `,
   },
+  {
+    version: 2,
+    sql: `
+CREATE TABLE IF NOT EXISTS audit_log (
+  id TEXT PRIMARY KEY NOT NULL,
+  at TEXT NOT NULL,
+  staff_id TEXT,
+  staff_name TEXT NOT NULL,
+  action TEXT NOT NULL,
+  details TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_audit_at ON audit_log(at);
+ALTER TABLE settings ADD COLUMN auto_backup INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE settings ADD COLUMN last_backup_at TEXT;
+`,
+  },
 ];
 
 export function appliedVersion(sqlite: { getFirstSync: (sql: string) => { user_version?: number } | null }): number {

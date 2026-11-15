@@ -62,6 +62,8 @@ export const settings = sqliteTable("settings", {
   id: integer("id").primaryKey(),
   shopName: text("shop_name").notNull().default(""),
   expiryAlertDays: integer("expiry_alert_days").notNull().default(90),
+  autoBackup: integer("auto_backup").notNull().default(0),
+  lastBackupAt: text("last_backup_at"),
 });
 
 export const staff = sqliteTable("staff", {
@@ -70,4 +72,13 @@ export const staff = sqliteTable("staff", {
   role: text("role").notNull().default("Staff"),
   pin: text("pin").notNull().default(""),
   createdAt: text("created_at").notNull(),
+});
+
+export const auditLog = sqliteTable("audit_log", {
+  id: text("id").primaryKey(),
+  at: text("at").notNull(),
+  staffId: text("staff_id"),
+  staffName: text("staff_name").notNull(),
+  action: text("action").notNull(),
+  details: text("details").notNull(),
 });

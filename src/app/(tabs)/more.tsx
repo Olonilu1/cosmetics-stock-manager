@@ -30,9 +30,10 @@ export default function More() {
       {item("Debts", "Who owes you, record payments", "cash-outline", "/debts")}
       {item("Suppliers", "Where you buy from", "people-outline", "/suppliers")}
       {item("Staff logins", "Profiles and PINs for your staff", "people-circle-outline", "/staff")}
-      {item("Backup and export", "CSV exports, JSON backup and restore", "save-outline", "/backup")}
+      {item("Activity log", "Who sold, restocked or edited, newest first", "time-outline", "/audit")}
+      {item("Backup and export", "CSV exports, JSON backup, auto backup on this phone", "save-outline", "/backup")}
       {item("Settings", "Shop name, expiry alert days, sample data", "settings-outline", "/settings")}
-      <Text style={{ color: colors.muted, fontSize: 12, marginTop: 12 }}>Cosmetics Stock Manager v1.0 · works fully offline</Text>
+      <Text style={{ color: colors.muted, fontSize: 12, marginTop: 12 }}>Cosmetics Stock Manager v1.1 · works fully offline</Text>
     </ScrollView>
   );
 }

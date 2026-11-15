@@ -3,7 +3,8 @@ import { getDb } from "../../db/client";
 import { products, purchases, sales } from "../../db/schema";
 import type { Product, ProductInput, ProductRepository, ProductStock } from "../types";
 import { stockOnHand, classifyStock, canDeleteProduct } from "../../domain/calc";
-import { todayISO } from "../../lib/dates";
+import { todayISO, naira } from "../../lib/dates";
+import { auditRepo } from "./auditRepo";
 
 function toProduct(row: typeof products.$inferSelect): Product {
   return {
@@ -49,20 +50,25 @@ export const productRepo: ProductRepository = {
       updatedAt: now,
     };
     await getDb().insert(products).values(row);
+    await auditRepo.log("product", `Added ${row.name} (cost ${naira(input.costPrice)}, sells at ${naira(input.sellingPrice)})`);
     return toProduct(row);
   },
   async update(id, input) {
+    const cur = await getDb().select({ name: products.name }).from(products).where(eq(products.id, id)).limit(1);
     await getDb()
       .update(products)
       .set({ ...input, updatedAt: todayISO() })
       .where(eq(products.id, id));
+    if (cur[0]) await auditRepo.log("product-edit", `Updated ${cur[0].name}`);
   },
   async remove(id) {
     const usage = await productRepo.hasUsage(id);
     if (!canDeleteProduct(usage.sold, usage.purchased)) {
       throw new Error("This product has sales or purchases recorded and cannot be deleted.");
     }
+    const cur = await getDb().select({ name: products.name }).from(products).where(eq(products.id, id)).limit(1);
     await getDb().delete(products).where(eq(products.id, id));
+    await auditRepo.log("product-delete", `Deleted ${cur[0]?.name ?? id}`);
   },
   async hasUsage(id) {
     const s = await getDb().select({ n: sql<number>`count(*)` }).from(sales).where(eq(sales.productId, id));

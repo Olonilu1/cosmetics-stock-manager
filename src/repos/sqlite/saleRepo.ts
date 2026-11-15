@@ -7,6 +7,8 @@ import {
   balance, canSell, creditSaleRequiresCustomer, lineProfit, saleLineTotal,
 } from "../../domain/calc";
 import type { PaymentType } from "../../domain/calc";
+import { naira } from "../../lib/dates";
+import { auditRepo } from "./auditRepo";
 
 function toSale(row: typeof sales.$inferSelect): Sale {
   return {
@@ -89,6 +91,10 @@ export const saleRepo: SaleRepository = {
       createdAt: new Date().toISOString(),
     };
     await getDb().insert(sales).values(row);
+    await auditRepo.log(
+      "sale",
+      `Sold ${input.qty} x ${product[0]?.name ?? input.productId} for ${naira(saleLineTotal(input.qty, input.unitPrice, input.discount ?? 0))} (${input.paymentType}${input.customer ? ", " + input.customer : ""})`,
+    );
     return toSale(row);
   },
   async update(id, input) {
@@ -108,6 +114,8 @@ export const saleRepo: SaleRepository = {
     if (stockAfterRemoval < 0) throw new Error("Deleting this sale would leave stock negative.");
     await getDb().delete(sales).where(eq(sales.id, id));
     await getDb().delete(debtPayments).where(eq(debtPayments.saleId, id));
+    const nameRows = await getDb().select({ name: products.name }).from(products).where(eq(products.id, s.productId)).limit(1);
+    await auditRepo.log("sale-delete", `Deleted a sale of ${s.qty} x ${nameRows[0]?.name ?? s.productId} (${naira(s.qty * s.unitPrice - s.discount)})`);
   },
   async debts() {
     const payMap = await paymentsBySale();
@@ -126,6 +134,17 @@ export const saleRepo: SaleRepository = {
     const id = crypto.randomUUID();
     const row = { id, saleId, date, amount, createdAt: new Date().toISOString() };
     await getDb().insert(debtPayments).values(row);
+    const found = await getDb()
+      .select({ sale: sales, productName: products.name })
+      .from(sales)
+      .leftJoin(products, eq(sales.productId, products.id))
+      .where(eq(sales.id, saleId))
+      .limit(1);
+    const f = found[0];
+    await auditRepo.log(
+      "debt-payment",
+      `Recorded ${naira(amount)} payment${f ? ` from ${f.sale.customer ?? "(no name)"} for ${f.productName ?? "(deleted product)"}` : ""}`,
+    );
     return row;
   },
 };

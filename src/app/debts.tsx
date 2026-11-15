@@ -1,9 +1,10 @@
 import { useCallback, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Share, Text, View } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { useTheme } from "../hooks/useTheme";
 import { Button, Card, EmptyState, Field, Row, Sheet } from "../components/ui";
-import { saleRepo } from "../repos";
+import { saleRepo, settingsRepo } from "../repos";
+import { debtReminderMessage } from "../lib/reminder";
 import { naira, todayISO } from "../lib/dates";
 
 interface DebtRow { sale: { id: string; customer: string | null; productName: string; date: string; balance: number; total: number }; payments: { id: string; date: string; amount: number }[]; balance: number }
@@ -15,11 +16,26 @@ export default function Debts() {
   const [target, setTarget] = useState<DebtRow | null>(null);
   const [amount, setAmount] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [shopName, setShopName] = useState("");
 
   const load = useCallback(async () => {
     const raw = await saleRepo.debts();
     setRows(raw as unknown as DebtRow[]);
+    settingsRepo.get().then((s) => setShopName(s.shopName));
   }, []);
+
+  /** Opens the share sheet with a ready-made WhatsApp/SMS reminder for this debt. */
+  const sendReminder = (r: DebtRow) => {
+    Share.share({
+      message: debtReminderMessage({
+        customer: r.sale.customer ?? "",
+        productName: r.sale.productName,
+        balance: r.balance,
+        date: r.sale.date,
+        shopName,
+      }),
+    });
+  };
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -46,7 +62,14 @@ export default function Debts() {
                 right={naira(r.balance)}
                 badge={{ tone: "warn", text: "OWED" }}
               />
-              <Button label="Record payment" onPress={() => { setTarget(r); setAmount(String(r.balance)); setError(null); setSheet(true); }} />
+              <View style={{ flexDirection: "row", gap: 10, marginTop: 10 }}>
+                <View style={{ flex: 1 }}>
+                  <Button label="Record payment" onPress={() => { setTarget(r); setAmount(String(r.balance)); setError(null); setSheet(true); }} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Button label="Send reminder" kind="plain" onPress={() => sendReminder(r)} />
+                </View>
+              </View>
             </Card>
           ))}
         </View>

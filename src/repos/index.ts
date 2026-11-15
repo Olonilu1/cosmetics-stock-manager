@@ -5,3 +5,4 @@ export { purchaseRepo } from "./sqlite/purchaseRepo";
 export { saleRepo } from "./sqlite/saleRepo";
 export { settingsRepo } from "./sqlite/settingsRepo";
 export { staffRepo } from "./sqlite/staffRepo";
+export { auditRepo } from "./sqlite/auditRepo";

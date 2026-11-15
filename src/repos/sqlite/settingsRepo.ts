@@ -12,10 +12,20 @@ export const settingsRepo: SettingsRepository = {
       rows = await db.select().from(settings).where(eq(settings.id, 1)).limit(1);
     }
     const row = rows[0];
-    return { shopName: row.shopName, expiryAlertDays: row.expiryAlertDays };
+    return {
+      shopName: row.shopName,
+      expiryAlertDays: row.expiryAlertDays,
+      autoBackup: row.autoBackup === 1,
+      lastBackupAt: row.lastBackupAt ?? null,
+    };
   },
   async update(input) {
     await settingsRepo.get();
-    await getDb().update(settings).set(input).where(eq(settings.id, 1));
+    const set: Partial<typeof settings.$inferInsert> = {};
+    if (input.shopName !== undefined) set.shopName = input.shopName;
+    if (input.expiryAlertDays !== undefined) set.expiryAlertDays = input.expiryAlertDays;
+    if (input.autoBackup !== undefined) set.autoBackup = input.autoBackup ? 1 : 0;
+    if (input.lastBackupAt !== undefined) set.lastBackupAt = input.lastBackupAt;
+    await getDb().update(settings).set(set).where(eq(settings.id, 1));
   },
 };

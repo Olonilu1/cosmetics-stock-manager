@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { staffRepo, type StaffMember } from "../repos";
+import { currentActor } from "../repos/sqlite/actor";
 
 interface AuthState {
   ready: boolean;
@@ -26,6 +27,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (list.length === 1 && list[0].role === "Owner") {
       // single-owner shop: no PIN ask on every launch
       setCurrent(list[0]);
+      currentActor.set(list[0]);
     }
     setReady(true);
   }
@@ -43,6 +45,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const s = await staffRepo.signIn(name, pin);
     if (s) {
       setCurrent(s);
+      currentActor.set(s);
       return null;
     }
     return "Wrong PIN, try again.";
@@ -56,7 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     gateNeeded: ready && profiles.length > 1 && !current,
     refresh,
     signIn,
-    signOut: () => setCurrent(null),
+    signOut: () => { setCurrent(null); currentActor.set(null); },
     createOwner,
   };
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;
